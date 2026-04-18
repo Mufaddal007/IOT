@@ -1,0 +1,11 @@
+[Unit]
+Description= IOT backend Flask App
+After = network.target
+
+[Service]
+WorkingDirectory=/home/mufaddal/iot-backend
+ExecStart=/home/mufaddal/iot-backend/venv/bin/python /home/mufaddal/iot-backend/app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

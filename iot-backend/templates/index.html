@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>IOT control panel</title>
+	</head>
+	<body>
+		<h2>Device Control</h2>
+		<p>LED State: <span id="ledState">Loading...</span></p>
+		<button onclick=toggleLed()>Toggle LED</button>
+		<div>
+			<h3>Create Schedule</h3>
+			<select id="device">
+				<option value="led">LED</option>
+				<option value="pump">Pump</option>
+			</select>
+			<input type="time" id="time">\
+			<input type="text" id="days" placeholder="MON,TUE">
+			<select id="action">
+				<option value="on">ON</option>
+				<option value="off">OFF</option>
+			</select>
+
+			<button onclick="createSchedule()">Add</button>
+
+			<div>
+				<h3>Schedules</h3>
+				<ul id="schedules_list"></ul>
+			</div>
+		</div>
+
+	<script>
+		const base_url = "/api"; 
+		async function loadState(){
+			const res = await fetch(base_url+"/state");
+			const data = await res.json(); 
+			document.getElementById("ledState").innerText = data.led; 
+		}
+
+		async function toggleLed(){
+		   const current = document.getElementById("ledState").innerText; 
+		  const newState = current == "on" ? "off" : "on"; 
+
+		await fetch(base_url + "/state",{
+			method: "POST", 
+			headers: {"Content-Type": "application/json"}, 
+			body: JSON.stringify({led: newState}) }); 
+		loadState();
+
+		} 
+
+
+		async function createSchedule(){
+			const time = document.getElementById("time").value; 
+			const device = document.getElementById("device").value; 
+			const days = document.getElementById("days").value; 
+			const action = document.getElementById("action").value; 
+
+			await fetch("/api/schedule", {
+				method:"POST", 
+				headers: {"Content-Type": "application/json"}, 
+				body: JSON.stringify({
+					device: device, 
+					action: action, 
+					time: time, 
+					days: days
+				})
+			}); 
+
+			loadSchedules(); 
+		}
+
+
+		async function loadSchedules(){
+			const res = await fetch("/api/schedules"); 
+			const data = await res.json(); 
+			const list = document.getElementById("schedules_list"); 
+			list.innerHTML = "";
+			
+			data.forEach(s => {
+				const li = document.createElement("li"); 
+				
+				li.innerHTML = `
+					${s.device} => ${s.time} | ${s.action} | ${s.days}
+					<button onclick="toggleSchedule(${s.id}, ${s.enabled ? 0: 1})">${s.enabled ? "Disable": "Enable"}</button>
+				`; 
+				list.appendChild(li); 
+			}); 			
+			
+		}
+
+		async function toggleSchedule(id, enabled){
+			await fetch("/api/schedule/toggle", {
+				method: "POST", 
+				headers : {"Content-Type": "application/json"}, 
+				body: JSON.stringify({id: id, enabled : enabled})
+			});
+			loadSchedules();  
+		}
+
+		
+		setInterval(loadState, 2000); 
+
+		document.addEventListener("DOMContentLoaded", function(){ loadSchedules() }); 
+		loadState(); 
+	</script>
+	</body>
+</html>
+
