@@ -2,184 +2,42 @@
 <html>
 	<head>
 		<title>IOT control panel</title>
-		<style>
-			body {
-				font-family: Arial, sans-serif; 
-				background: #f4f6f8; 
-				margin: 0; 
-				padding: 0; 
-				}
-			.container {
-				max-width: 900px;
-				margin: auto; 
-				padding: 20px;
-				}
-
-			h1{
-			text-align: center; 
-			color: #333;
-			}
-			.card{
-				background: white; 
-				padding: 20px; 
-				margin-top: 20px; 
-				border-radius: 12px;
-				box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
-				}
-			
-			button{
-			 padding: 10px 16px; 
-			border: none; 
-			border-radius: 8px; 
-			cursor: pointer; 
-			background: #007bff; 
-			color:  white; 
-			margin-top: 10px; 
-			}
-
-			button:hover {
-				background: #0056b3
-				}
-
-			input, select{
-				padding: 8px; 
-				margin: 5px; 
-				border-radius: 6px; 
-				border: 1px solid #ccc; 
-			}
-		</style>
 		<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+		<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css')}}"/>
+		<script src="{{ url_for('static', filename='js/app.js')}}"></script>
 	</head>
 	<body>
-
 		<div class="container">
-		<h1>IOT control panel</h1>
-
-		<div class="card">
-			<p>LED State: <span id="ledState">Loading...</span></p>
-			<button onclick=toggleLed()>Toggle LED</button>
-		</div>
-		<div class="card">
+			<h1>IOT control panel</h1>
+			<div class="card section led-row">
+				<div>
+					<p>LED State: <span id="ledState">Loading...</span></p>
+				</div>
+				<button onclick="toggleLed()">Toggle LED</button>
+			</div>
+			<div class="card section">
+				<div>
+					<h3>Create Schedule</h3>
+					<div class="form-row">
+						<select id="device">
+							<option value="led">LED</option>
+							<option value="pump">Pump</option>
+						</select>
+						<input type="time" id="time"/>
+						<input type="text" id="days" placeholder="MON,TUE"/>
+						<select id="action">
+							<option value="on">ON</option>
+							<option value="off">OFF</option>
+						</select>
+						<button onclick="createSchedule()">Add</button>
+					</div>
 					<div>
-			<h3>Create Schedule</h3>
-			<select id="device">
-				<option value="led">LED</option>
-				<option value="pump">Pump</option>
-			</select>
-			<input type="time" id="time">\
-			<input type="text" id="days" placeholder="MON,TUE">
-			<select id="action">
-				<option value="on">ON</option>
-				<option value="off">OFF</option>
-			</select>
-
-			<button onclick="createSchedule()">Add</button>
-
-			<div>
-				<h3>Schedules</h3>
-				<ul id="schedules_list"></ul>
+						<h3>Schedules</h3>
+						<ul id="schedules_list"/>
+					</div>
+				</div>
 			</div>
 		</div>
-		</div>
-
-
-
-		</div>
-
-
-	<script>
-		const base_url = "/api"; 
-		async function loadState(){
-			const res = await fetch(base_url+"/state");
-			const data = await res.json(); 
-			document.getElementById("ledState").innerText = data.led; 
-		}
-
-		async function toggleLed(){
-		   const current = document.getElementById("ledState").innerText; 
-		  const newState = current == "on" ? "off" : "on"; 
-
-		await fetch(base_url + "/state",{
-			method: "POST", 
-			headers: {"Content-Type": "application/json"}, 
-			body: JSON.stringify({led: newState}) }); 
-	//	loadState();
-
-		} 
-
-		const socket = io(); 
-		socket.on("state_update", function(data){
-			console.log("Received", data); 
-			updateDeviceUI(data.device, data.state); 
-			})
-		socket.on("connect", () => {
-			console.log("Socket conected"); 
-			})
-		function updateDeviceUI(device, state){
-			const el = document.getElementById("ledState"); 
-			if(!el) return; 
-			if(state==="on"){
-				el.innerText = "on"; 
-				el.style.background = "green"; 
-					}
-			else{
-			 el.innerText = "off"; 
-			el.style.background = "red"; 
-			}
-			
-			}
-		async function createSchedule(){
-			const time = document.getElementById("time").value; 
-			const device = document.getElementById("device").value; 
-			const days = document.getElementById("days").value; 
-			const action = document.getElementById("action").value; 
-
-			await fetch("/api/schedule", {
-				method:"POST", 
-				headers: {"Content-Type": "application/json"}, 
-				body: JSON.stringify({
-					device: device, 
-					action: action, 
-					time: time, 
-					days: days
-				})
-			}); 
-
-			loadSchedules(); 
-		}
-
-
-		async function loadSchedules(){
-			const res = await fetch("/api/schedules"); 
-			const data = await res.json(); 
-			const list = document.getElementById("schedules_list"); 
-			list.innerHTML = "";
-			
-			data.forEach(s => {
-				const li = document.createElement("li"); 
-				
-				li.innerHTML = `
-					${s.device} => ${s.time} | ${s.action} | ${s.days}
-					<button onclick="toggleSchedule(${s.id}, ${s.enabled ? 0: 1})">${s.enabled ? "Disable": "Enable"}</button>
-				`; 
-				list.appendChild(li); 
-			}); 			
-			
-		}
-
-		async function toggleSchedule(id, enabled){
-			await fetch("/api/schedule/toggle", {
-				method: "POST", 
-				headers : {"Content-Type": "application/json"}, 
-				body: JSON.stringify({id: id, enabled : enabled})
-			});
-			loadSchedules();  
-		}
-
-		
-
-		document.addEventListener("DOMContentLoaded", function(){ loadSchedules() }); 
-	</script>
 	</body>
 </html>
 

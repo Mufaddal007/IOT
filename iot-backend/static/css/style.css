@@ -1,0 +1,112 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    background: #f5f7fb;
+    margin: 0;
+    padding: 0;
+}
+
+.led-row{
+	display: flex; 
+	justify-content: space-between; 
+	align-items: center; 
+}
+
+.container {
+    max - width: 900px;
+    margin: auto;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+	margin-bottom : 30px;
+    font-weight : 600; 
+	margin-bottom: 30px; 
+}
+.card {
+    background: white;
+    padding: 20px;
+    margin - top: 20px;
+    border - radius: 12px;
+    box - shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+	max-width: 700px; 
+	margin: 20px auto; 
+}
+
+h2{
+	margin-bottom: 10px; 
+}
+
+.section{
+	margin-bottom: 25px; 
+	
+}
+
+button {
+    padding: 10px 16px;
+    border: none;
+    border - radius: 8px;
+    cursor: pointer;
+    background: #007bff;
+    color: white;
+    margin - top: 10px;
+}
+
+button: hover {
+    background: #2563eb; 
+	color: white; 
+	border: none; 
+	padding: 10px 16px; 
+	border-radius: 8px; 
+	cursor: pointer; 
+	transition: 0.2s; 
+}
+button:hover{
+	background: #1e40af; 
+}
+
+.form-row{
+	display: flex; 
+	gap: 10px; 
+	flex-wrap : wrap; 
+	margin-bottom: 10px;
+}
+
+input, select {
+    padding: 8px;
+    margin: 5px;
+    border - radius: 6px;
+    border: 1px solid #ccc;
+}
+#ledState{
+	padding: 4px 10px; 
+	border-radius: 6px; 
+	font-weight: bold; 
+	color: white; 
+}
+
+.schedule-list{
+	list-style: none; 
+	padding: 0; 
+}
+
+
+.schedule-row{
+	display: flex; 
+	justify-content: space-between; 
+	align-items: center; 
+	padding: 12px; 
+	border-bottom: 1px solid #eee; 
+}
+
+.schedule:hover{
+	background: #f9fafb;
+}
+
+
+.secondary{
+	background: #6b7280; 
+}
+.danger{
+	background: #dc2626; 
+}

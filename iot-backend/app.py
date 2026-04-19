@@ -150,6 +150,15 @@ def toggle_schedule():
 	conn.commit()
 	conn.close()
 	return jsonify({"status": "updated"})
+    
+@app.route("/api/schedule/delete", methods=["POST"])    
+def  delete_schedule():
+    data = request.json
+    conn = get_db_connection(); 
+    conn.execute("delete from schedule where id=? ", (data.get("id"),)); 
+    conn.commit(); 
+    conn.close();
+    return jsonify({"status": "deleted"}); 
 
 if __name__ =='__main__':
 #	app.run(host="0.0.0.0", port=1000, debug=False)
