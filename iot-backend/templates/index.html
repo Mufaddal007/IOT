@@ -48,6 +48,7 @@
 				border: 1px solid #ccc; 
 			}
 		</style>
+		<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
 	</head>
 	<body>
 
@@ -102,11 +103,31 @@
 			method: "POST", 
 			headers: {"Content-Type": "application/json"}, 
 			body: JSON.stringify({led: newState}) }); 
-		loadState();
+	//	loadState();
 
 		} 
 
-
+		const socket = io(); 
+		socket.on("state_update", function(data){
+			console.log("Received", data); 
+			updateDeviceUI(data.device, data.state); 
+			})
+		socket.on("connect", () => {
+			console.log("Socket conected"); 
+			})
+		function updateDeviceUI(device, state){
+			const el = document.getElementById("ledState"); 
+			if(!el) return; 
+			if(state==="on"){
+				el.innerText = "on"; 
+				el.style.background = "green"; 
+					}
+			else{
+			 el.innerText = "off"; 
+			el.style.background = "red"; 
+			}
+			
+			}
 		async function createSchedule(){
 			const time = document.getElementById("time").value; 
 			const device = document.getElementById("device").value; 
@@ -156,10 +177,8 @@
 		}
 
 		
-		setInterval(loadState, 2000); 
 
 		document.addEventListener("DOMContentLoaded", function(){ loadSchedules() }); 
-		loadState(); 
 	</script>
 	</body>
 </html>

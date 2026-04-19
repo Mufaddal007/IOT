@@ -1,22 +1,49 @@
+import eventlet
+eventlet.monkey_patch()
 from flask import Flask, request, jsonify, render_template
 from apscheduler.schedulers.background import BackgroundScheduler
+from flask_socketio import SocketIO
 import sqlite3
 import datetime
 
 
+#print("PID: ", os.getpid())
+
 app = Flask(__name__)
 
 device_state = {
-	"led" : "off", 
+	"led" : "off",
 	"pump" : "off"
 }
 
 
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+
+@socketio.on('connect')
+def handle_client():
+	print("Client connected")
+	state =  get_current_state_from_db(); 
+	socketio.emit("state_update", {"device": "led", "state": state["led"]})
+
+
+
+def get_current_state_from_db():
+	conn = get_db_connection();
+	state = conn.execute('select * from device_state limit 1').fetchone();
+	print(dict(state))
+	conn.close()
+	if(state):
+		return dict(state);
+	else:
+		return {"led": "off", "pump": "off"}
+
+
 
 def check_schedule():
-	now = datetime.datetime.now().strftime("%H:%M"); 
-	print("checking schedule at: ", now); 
-	conn = get_db_connection(); 
+	now = datetime.datetime.now().strftime("%H:%M");
+	print("checking schedule at: ", now);
+	conn = get_db_connection();
 	result = conn.execute("select * from schedule where time=? and enabled=1", (now,)).fetchall();
 	today = datetime.datetime.now().strftime("%a").upper();
 	for row in result:
@@ -27,11 +54,21 @@ def check_schedule():
 		if days:
 			if today not in days: continue;
 		print(f"Triggering {device} -> {action}")
+
 		if(device=="led" and last_run!=now):
 			conn.execute("update device_state set led=? where id = 1", (action,)); 
-			conn.execute("update device_state set last_run=? where id=?", (now, row["id"])); 
+			conn.execute("update device_state set last_run=? where id=?", (now, row	["id"])); 
+			state = {"device": device, "state": action}
+#			print("Rooms: ", socketio.server.manager.rooms)
+			socketio.start_background_task(emit_state_update, state)
+			print("data emitted")
 	conn.commit();
 	conn.close()
+
+
+def emit_state_update(state):
+	print("emitting from background task: ", state); 
+	socketio.emit("state_update", state)
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(check_schedule, 'interval', seconds=30)
@@ -62,12 +99,17 @@ def get_state():
 
 @app.route("/api/state", methods=["POST"])
 def update_state():
-	data = request.json; 
+	data = request.json;
 	print(data)
 	conn = get_db_connection()
 	conn.execute("update device_state set led=?, pump=? where id=1 ", (data.get("led"), data.get("pump")))
-	conn.commit(); 
+	conn.commit();
 	conn.close()
+
+	socketio.emit("state_update", {
+		"device": "led", 
+		"state": data.get("led")
+	})
 	return jsonify({"status": "updated"})
 
 
@@ -110,4 +152,5 @@ def toggle_schedule():
 	return jsonify({"status": "updated"})
 
 if __name__ =='__main__':
-	app.run(host="0.0.0.0", port=1000, debug=False)
+#	app.run(host="0.0.0.0", port=1000, debug=False)
+	socketio.run(app, host="0.0.0.0", port=1000)
