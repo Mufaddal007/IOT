@@ -5,9 +5,60 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from flask_socketio import SocketIO
 import sqlite3
 import datetime
+import asyncio
+import websockets
+import json
+import threading
+
+ws_loop = None
+
+esp_clients = set()
 
 
-#print("PID: ", os.getpid())
+async def esp_handler(websocket):
+    print("✅ ESP connected")
+    esp_clients.add(websocket)
+    state = get_current_state_from_db()
+    send_command("led", state["led"])
+    try:
+        async for message in websocket:
+            print("📩 From ESP:", message)
+            data = json.loads(message)
+            
+            if data.get("type") == "status":
+#               conn = get_db_connection()
+#               conn.execute("update device_state set led=? where id =1", (data.get("led"), ))
+                socketio.emit("state_update", data)
+            
+    except Exception as e:
+            print("❌ ESP error: ", e)
+    finally:
+        esp_clients.remove(websocket)
+        print("❌ ESP disconnected")
+        
+                
+ 
+def start_ws_server():
+    global ws_loop
+
+    async def main():
+        async with websockets.serve(esp_handler, "0.0.0.0", 8765):
+            print("🚀 WebSocket server running on port 8765")
+            await asyncio.Future()
+
+    ws_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(ws_loop)
+    ws_loop.run_until_complete(main())
+
+threading.Thread(target=start_ws_server, daemon=True).start()
+
+async def send_to_esp(message):
+    if not esp_clients:
+        print("⚠️ No ESP connected")
+        return ; 
+    for client in esp_clients:
+        await client.send(json.dumps(message))
+
 
 app = Flask(__name__)
 
@@ -22,10 +73,32 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 @socketio.on('connect')
 def handle_client():
-	print("Client connected")
+	print("Client connected", request.sid)
 	state =  get_current_state_from_db(); 
 	socketio.emit("state_update", {"device": "led", "state": state["led"]})
 
+
+@socketio.on('disconnect')
+def on_disconnect():
+    print('Client disconnected')
+
+@socketio.on('message')
+def handle_message(data):
+    print("Received from ESP", data); 
+
+def send_command(device, action):
+    if ws_loop is None:
+        print("❌ WS loop not ready")
+        return
+
+    asyncio.run_coroutine_threadsafe(
+        send_to_esp({
+            "type": "command",
+            "device": device,
+            "action": action
+        }),
+        ws_loop
+    )
 
 
 def get_current_state_from_db():
@@ -59,7 +132,7 @@ def check_schedule():
 			conn.execute("update device_state set led=? where id = 1", (action,)); 
 			conn.execute("update device_state set last_run=? where id=?", (now, row	["id"])); 
 			state = {"device": device, "state": action}
-#			print("Rooms: ", socketio.server.manager.rooms)
+			send_command(device, action)
 			socketio.start_background_task(emit_state_update, state)
 			print("data emitted")
 	conn.commit();
@@ -102,6 +175,7 @@ def update_state():
 	data = request.json;
 	print(data)
 	conn = get_db_connection()
+	send_command("led", data.get("led"))
 	conn.execute("update device_state set led=?, pump=? where id=1 ", (data.get("led"), data.get("pump")))
 	conn.commit();
 	conn.close()
