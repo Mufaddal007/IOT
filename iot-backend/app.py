@@ -9,6 +9,10 @@ import asyncio
 import websockets
 import json
 import threading
+import logging
+
+
+logging.basicConfig(level = logging.INFO)
 
 ws_loop = None
 
@@ -16,13 +20,13 @@ esp_clients = set()
 
 
 async def esp_handler(websocket):
-    print("✅ ESP connected")
+    logging.info("✅ ESP connected")
     esp_clients.add(websocket)
     state = get_current_state_from_db()
     send_command("led", state["led"])
     try:
         async for message in websocket:
-            print("📩 From ESP:", message)
+            logging.info("📩 From ESP: %s", message)
             data = json.loads(message)
             
             if data.get("type") == "status":
@@ -31,10 +35,10 @@ async def esp_handler(websocket):
                 socketio.emit("state_update", data)
             
     except Exception as e:
-            print("❌ ESP error: ", e)
+            logging.info("❌ ESP error:  %s", e)
     finally:
         esp_clients.remove(websocket)
-        print("❌ ESP disconnected")
+        logging.info("❌ ESP disconnected")
         
                 
  
@@ -43,7 +47,7 @@ def start_ws_server():
 
     async def main():
         async with websockets.serve(esp_handler, "0.0.0.0", 8765):
-            print("🚀 WebSocket server running on port 8765")
+            logging.info("🚀 WebSocket server running on port 8765")
             await asyncio.Future()
 
     ws_loop = asyncio.new_event_loop()
@@ -54,7 +58,7 @@ threading.Thread(target=start_ws_server, daemon=True).start()
 
 async def send_to_esp(message):
     if not esp_clients:
-        print("⚠️ No ESP connected")
+        logging.info("⚠️ No ESP connected")
         return ; 
     for client in esp_clients:
         await client.send(json.dumps(message))
@@ -73,22 +77,22 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 @socketio.on('connect')
 def handle_client():
-	print("Client connected", request.sid)
+	logging.info("Client connected %s", request.sid)
 	state =  get_current_state_from_db(); 
 	socketio.emit("state_update", {"device": "led", "state": state["led"]})
 
 
 @socketio.on('disconnect')
 def on_disconnect():
-    print('Client disconnected')
+    logging.info('Client disconnected')
 
 @socketio.on('message')
 def handle_message(data):
-    print("Received from ESP", data); 
+    logging.info("Received from ESP %s", data); 
 
 def send_command(device, action):
     if ws_loop is None:
-        print("❌ WS loop not ready")
+        logging.info("❌ WS loop not ready")
         return
 
     asyncio.run_coroutine_threadsafe(
@@ -104,7 +108,7 @@ def send_command(device, action):
 def get_current_state_from_db():
 	conn = get_db_connection();
 	state = conn.execute('select * from device_state limit 1').fetchone();
-	print(dict(state))
+	#print(dict(state))
 	conn.close()
 	if(state):
 		return dict(state);
@@ -115,7 +119,7 @@ def get_current_state_from_db():
 
 def check_schedule():
 	now = datetime.datetime.now().strftime("%H:%M");
-	print("checking schedule at: ", now);
+	logging.info("checking schedule at: %s", now);
 	conn = get_db_connection();
 	result = conn.execute("select * from schedule where time=? and enabled=1", (now,)).fetchall();
 	today = datetime.datetime.now().strftime("%a").upper();
@@ -126,7 +130,7 @@ def check_schedule():
 		days = row["days"]
 		if days:
 			if today not in days: continue;
-		print(f"Triggering {device} -> {action}")
+		logging.info("Triggering  => %s %s", device, action)
 
 		if(device=="led" and last_run!=now):
 			conn.execute("update device_state set led=? where id = 1", (action,)); 
@@ -134,13 +138,13 @@ def check_schedule():
 			state = {"device": device, "state": action}
 			send_command(device, action)
 			socketio.start_background_task(emit_state_update, state)
-			print("data emitted")
+			logging.info("data emitted")
 	conn.commit();
 	conn.close()
 
 
 def emit_state_update(state):
-	print("emitting from background task: ", state); 
+	logging.info("emitting from background task: %s", state); 
 	socketio.emit("state_update", state)
 
 scheduler = BackgroundScheduler()
@@ -173,7 +177,7 @@ def get_state():
 @app.route("/api/state", methods=["POST"])
 def update_state():
 	data = request.json;
-	print(data)
+	logging.info(data)
 	conn = get_db_connection()
 	send_command("led", data.get("led"))
 	conn.execute("update device_state set led=?, pump=? where id=1 ", (data.get("led"), data.get("pump")))
@@ -194,7 +198,7 @@ def sensor_data():
 	conn.execute("insert into sensor_data (moisture) values(?)", (data.get("moisture"),));
 	conn.commit(); 
 	conn.close();
-	print("sensor data: ", data)
+	logging.info("sensor data: %s", data)
 	return jsonify({"status": "stored"})
 
 

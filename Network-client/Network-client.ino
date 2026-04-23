@@ -11,6 +11,24 @@ WebsocketsClient client;
 
 #define LED_PIN 2
 
+bool isConnected = false; 
+unsigned long lastReconnectAttempt = 0; 
+unsigned long lastPingTime = 0; 
+
+
+void connectWebSocket(){
+    Serial.println("Connecting to websocket..."); 
+    isConnected = client.connect("192.168.31.113", 8765, "/"); 
+    if(isConnected){
+        Serial.println("WebSocket Connected"); 
+    }
+    else{
+        Serial.println("Websocket connection failed"); 
+    }
+}
+
+
+
 void onMessageCallback(WebsocketsMessage message) {
     Serial.print("📩 From Server: ");
     Serial.println(message.data());
@@ -49,9 +67,24 @@ void setup() {
 
     client.onMessage(onMessageCallback);
 
-    client.connect("192.168.31.113", 8765, "/");
+    connectWebSocket(); 
 }
 
 void loop() {
-    client.poll();
+    client.poll(); 
+    if(!client.available()){
+        isConnected= false; 
+    }
+
+    if(!isConnected && millis() - lastReconnectAttempt > 5000){
+        lastReconnectAttempt = millis(); 
+        connectWebSocket(); 
+    }
+
+    if(!isConnected && millis() - lastPingTime >30000){
+        client.send("ping"); 
+        lastPingTime = millis(); 
+        Serial.println("ping send"); 
+    }
+
 }
