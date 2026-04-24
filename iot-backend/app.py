@@ -1,108 +1,13 @@
-import eventlet
-eventlet.monkey_patch()
 from flask import Flask, request, jsonify, render_template
-from apscheduler.schedulers.background import BackgroundScheduler
-from flask_socketio import SocketIO
-import sqlite3
-import datetime
-import asyncio
-import websockets
-import json
-import threading
+import requests
 import logging
-
-
-logging.basicConfig(level = logging.INFO)
-
-ws_loop = None
-
-esp_clients = set()
-
-
-async def esp_handler(websocket):
-    logging.info("✅ ESP connected")
-    esp_clients.add(websocket)
-    state = get_current_state_from_db()
-    send_command("led", state["led"])
-    try:
-        async for message in websocket:
-            logging.info("📩 From ESP: %s", message)
-            data = json.loads(message)
-            
-            if data.get("type") == "status":
-#               conn = get_db_connection()
-#               conn.execute("update device_state set led=? where id =1", (data.get("led"), ))
-                socketio.emit("state_update", data)
-            
-    except Exception as e:
-            logging.info("❌ ESP error:  %s", e)
-    finally:
-        esp_clients.remove(websocket)
-        logging.info("❌ ESP disconnected")
-        
-                
- 
-def start_ws_server():
-    global ws_loop
-
-    async def main():
-        async with websockets.serve(esp_handler, "0.0.0.0", 8765):
-            logging.info("🚀 WebSocket server running on port 8765")
-            await asyncio.Future()
-
-    ws_loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(ws_loop)
-    ws_loop.run_until_complete(main())
-
-threading.Thread(target=start_ws_server, daemon=True).start()
-
-async def send_to_esp(message):
-    if not esp_clients:
-        logging.info("⚠️ No ESP connected")
-        return ; 
-    for client in esp_clients:
-        await client.send(json.dumps(message))
+import sqlite3
 
 
 app = Flask(__name__)
+logging.basicConfig(level = logging.INFO)
 
-device_state = {
-	"led" : "off",
-	"pump" : "off"
-}
-
-
-socketio = SocketIO(app, cors_allowed_origins="*")
-
-
-@socketio.on('connect')
-def handle_client():
-	logging.info("Client connected %s", request.sid)
-	state =  get_current_state_from_db(); 
-	socketio.emit("state_update", {"device": "led", "state": state["led"]})
-
-
-@socketio.on('disconnect')
-def on_disconnect():
-    logging.info('Client disconnected')
-
-@socketio.on('message')
-def handle_message(data):
-    logging.info("Received from ESP %s", data); 
-
-def send_command(device, action):
-    if ws_loop is None:
-        logging.info("❌ WS loop not ready")
-        return
-
-    asyncio.run_coroutine_threadsafe(
-        send_to_esp({
-            "type": "command",
-            "device": device,
-            "action": action
-        }),
-        ws_loop
-    )
+ASYNC_CORE_URL="http://127.0.0.1:8081"
 
 
 def get_current_state_from_db():
@@ -117,40 +22,6 @@ def get_current_state_from_db():
 
 
 
-def check_schedule():
-	now = datetime.datetime.now().strftime("%H:%M");
-	logging.info("checking schedule at: %s", now);
-	conn = get_db_connection();
-	result = conn.execute("select * from schedule where time=? and enabled=1", (now,)).fetchall();
-	today = datetime.datetime.now().strftime("%a").upper();
-	for row in result:
-		device = row["device"]
-		action = row["action"]
-		last_run = row["last_run"]
-		days = row["days"]
-		if days:
-			if today not in days: continue;
-		logging.info("Triggering  => %s %s", device, action)
-
-		if(device=="led" and last_run!=now):
-			conn.execute("update device_state set led=? where id = 1", (action,)); 
-			conn.execute("update device_state set last_run=? where id=?", (now, row	["id"])); 
-			state = {"device": device, "state": action}
-			send_command(device, action)
-			socketio.start_background_task(emit_state_update, state)
-			logging.info("data emitted")
-	conn.commit();
-	conn.close()
-
-
-def emit_state_update(state):
-	logging.info("emitting from background task: %s", state); 
-	socketio.emit("state_update", state)
-
-scheduler = BackgroundScheduler()
-scheduler.add_job(check_schedule, 'interval', seconds=30)
-scheduler.start()
-
 
 def get_db_connection():
 	conn  = sqlite3.connect("iot.db"); 
@@ -163,15 +34,14 @@ def home():
 	return render_template("index.html"); 
 
 
-@app.route("/api/state", methods=["GET"])
-def get_state():
-	conn = get_db_connection(); 
-	state = conn.execute('select * from device_state limit 1').fetchone(); 
-	conn.close()
-	if(state):
-		return jsonify(dict(state))
-	else:
-		return jsonify({"led": "off", "pump": "off"})
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.json
+    if data.get("username")=="admin" and data.get("password") =="admin":
+        return jsonify({"status": "ok"})
+    return jsonify({"error": "invalid"}), 401
+    
+    
 
 
 @app.route("/api/state", methods=["POST"])
@@ -179,16 +49,16 @@ def update_state():
 	data = request.json;
 	logging.info(data)
 	conn = get_db_connection()
-	send_command("led", data.get("led"))
+	#send_command("led", data.get("led"))
 	conn.execute("update device_state set led=?, pump=? where id=1 ", (data.get("led"), data.get("pump")))
+	data = {"device": "led", "state": data.get("led")}
+	try:
+        	requests.post(f"{ASYNC_CORE_URL}/command", json= data, timeout=1)
+	except Exception as e:
+        	logging.info("Async core not reachable: %s", e)
 	conn.commit();
 	conn.close()
-
-	socketio.emit("state_update", {
-		"device": "led", 
-		"state": data.get("led")
-	})
-	return jsonify({"status": "updated"})
+	return jsonify({"status": "sent"})
 
 
 @app.route("/api/sensor", methods=["POST"])
@@ -209,9 +79,14 @@ def create_schedule():
 	conn = get_db_connection()
 	enabled = 1;
 	conn.execute("insert into schedule(device, action, time, days, enabled) values(?,?,?,?,?)", (data.get("device"), data.get("action"), data.get("time"), data.get("days"), enabled))
+    
+	try:
+       		requests.post(f"{ASYNC_CORE_URL}/schedules", json=schedules, timeout= 1)
+	except Exception as e:
+        	logging.info("Async core not reachable: %s", e )
 	conn.commit();
 	conn.close()
-	return jsonify({"status": "created"})
+	return jsonify({"status": "updated"})
 
 @app.route("/api/schedules", methods=["GET"])
 def get_schedule():
@@ -238,6 +113,7 @@ def  delete_schedule():
     conn.close();
     return jsonify({"status": "deleted"}); 
 
-if __name__ =='__main__':
-#	app.run(host="0.0.0.0", port=1000, debug=False)
-	socketio.run(app, host="0.0.0.0", port=1000)
+
+
+if __name__== '__main__':
+    app.run(host="0.0.0.0", port=1000)

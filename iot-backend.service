@@ -1,6 +1,7 @@
 [Unit]
 Description= IOT backend Flask App
-After = network.target
+After = network.target async-core.service
+Requires=async-core.service
 
 [Service]
 WorkingDirectory=/home/mufaddal/iot-backend

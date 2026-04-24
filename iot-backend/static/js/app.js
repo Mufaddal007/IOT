@@ -22,14 +22,19 @@ async function toggleLed() {
 
 }
 
-const socket = io();
-socket.on("state_update", function (data) {
-    console.log("Received", data);
-    updateDeviceUI(data.device, data.state);
-})
-socket.on("connect", () => {
-    console.log("Socket conected");
-})
+const socket = new  WebSocket("ws://192.168.31.113:8766");
+socket.onopen = () => {
+	console.log("Connected to websocket")
+  socket.send(JSON.stringify({
+    type: "register",
+    client: "browser"
+  }));
+};
+socket.onmessage  = (event) => {
+	const msg = JSON.parse(event.data); 
+	console.log(msg);
+};
+
 function updateDeviceUI(device, state) {
     const el = document.getElementById("ledState");
     if (!el)
