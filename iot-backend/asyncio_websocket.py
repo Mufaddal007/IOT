@@ -58,6 +58,7 @@ async def scheduler():
                 conn.execute("update device_state set last_run=? where id=?", (now, row	["id"])); 
                 state = {"device": device, "state": action}
                 await send_to_esp(device, action)
+                await send_to_browser(state)
                 logging.info("data emitted")
         conn.commit();
         conn.close()
@@ -68,6 +69,8 @@ async def scheduler():
 async def browser_handler(websocket):
     logging.info("✅ Browser connected")
     browser_clients.add(websocket)
+    state = get_current_state_from_db()
+    await send_to_browser({"device": "led", "state": state["led"]})
     try:
         async for message_from_browser in websocket:
             logging.info("📩 From Browser: %s", message_from_browser)
@@ -88,11 +91,11 @@ async def esp_handler(websocket):
             data = json.loads(message)
             
             if data.get("type") == "status":
-#               conn = get_db_connection()
-#               conn.execute("update device_state set led=? where id =1", (data.get("led"), ))
-#                conn.commit(); 
-#                conn.close(); 
-                await send_to_browser({"device": "led", "state": state["led"]})
+               conn = get_db_connection()
+               conn.execute("update device_state set led=? where id =1", (data.get("state"), ))
+               conn.commit(); 
+               conn.close(); 
+               await send_to_browser({"device": "led", "state": data.get("state")})
             
     except Exception as e:
             logging.info("❌ ESP error:  %s", e)
@@ -111,7 +114,7 @@ async def send_to_browser(payload: dict):
     msg = json.dumps(payload)
     dead = []
 
-    for ws in browser_clients.copy():   # ✅ safe iteration
+    for ws in browser_clients.copy():
         try:
             await ws.send(msg)
         except Exception as e:
@@ -152,7 +155,7 @@ async def main():
     site = web.TCPSite(runner, "0.0.0.0", 8081)
     await site.start()
     
-    logging.info("Async core running (WS: 8765, HTTP: 8001)")
+    logging.info("Async core running (ESP WS: 8765, Browser WS: 8766, HTTP: 8001)")
     
     
     asyncio.create_task(scheduler())

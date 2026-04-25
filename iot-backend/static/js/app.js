@@ -32,6 +32,9 @@ socket.onopen = () => {
 };
 socket.onmessage  = (event) => {
 	const msg = JSON.parse(event.data); 
+	const device =   msg["device"];
+	const state = msg ["state"]; 
+	updateDeviceUI(device, state); 
 	console.log(msg);
 };
 
