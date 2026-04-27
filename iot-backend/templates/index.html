@@ -18,22 +18,35 @@
 			<div class="card section">
 				<div>
 					<h3>Create Schedule</h3>
+					<input id="label" type="text" placeholder="label (e.g. Morning light)" />
+					
 					<div class="form-row">
 						<select id="device">
 							<option value="led">LED</option>
 							<option value="pump">Pump</option>
 						</select>
-						<input type="time" id="time"/>
+						<input type="time" id="from_time"/>
+						<input type="time" id="to_time" />
+						
 						<input type="text" id="days" placeholder="MON,TUE"/>
-						<select id="action">
-							<option value="on">ON</option>
-							<option value="off">OFF</option>
-						</select>
 						<button onclick="createSchedule()">Add</button>
 					</div>
-					<div>
+					<div class="table-container">
 						<h3>Schedules</h3>
-						<ul id="schedules_list"/>
+						<table class="schedule-table">
+							<thead>
+								<tr>
+									<th>Label</th>
+									<th>Device</th>
+									<th>From</th>
+									<th>To</th>
+									<th>Days</th>
+									<th>Status</th>
+									<th>Actions</th>
+								</tr>
+							</thead>
+							<tbody id="scheduleTable"></tbody>
+						</table>
 					</div>
 				</div>
 			</div>

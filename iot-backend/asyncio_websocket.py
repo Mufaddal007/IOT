@@ -40,26 +40,33 @@ async def scheduler():
     last_state = {}
     while True:
         now = datetime.datetime.now().strftime("%H:%M");
+        today = datetime.datetime.now().strftime("%a").upper();
+        
         logging.info("checking schedule at: %s", now);
         conn = get_db_connection();
-        result = conn.execute("select * from schedule where time=? and enabled=1", (now,)).fetchall();
-        today = datetime.datetime.now().strftime("%a").upper();
+        result = conn.execute("select * from schedule where enabled=1").fetchall();
+        
         for row in result:
             device = row["device"]
-            action = row["action"]
-            last_run = row["last_run"]
             days = row["days"]
             if days:
                 if today not in days: continue;
-            logging.info("Triggering  => %s %s", device, action)
+            
 
-            if(device=="led" and last_run!=now):
-                conn.execute("update device_state set led=? where id = 1", (action,)); 
-                conn.execute("update device_state set last_run=? where id=?", (now, row	["id"])); 
-                state = {"device": device, "state": action}
-                await send_to_esp(device, action)
-                await send_to_browser(state)
-                logging.info("data emitted")
+            if(now==row['from_time'] and row['last_run_from'] != now):
+                logging.info("Triggering  => %s %s", device, 'on')
+                conn.execute("update device_state set led=? where id = 1", ('on',)); 
+                conn.execute("update schedule set last_run_from=? where id=?", (now, row["id"])); 
+                state = {"device": device, "state": 'on'}
+                await send_to_esp(device, 'on')
+                #await send_to_browser(state)
+            if(now==row['to_time'] and row['last_run_to'] != now):
+                logging.info("Triggering  => %s %s", device, 'off')
+                conn.execute("update device_state set led=? where id = 1", ('off',)); 
+                conn.execute("update schedule set last_run_to=? where id=?", (now, row["id"])); 
+                state = {"device": device, "state": 'off'}
+                await send_to_esp(device, 'off')
+                #await send_to_browser(state)
         conn.commit();
         conn.close()
         #last_state[device] = desired

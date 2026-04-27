@@ -110,3 +110,92 @@ input, select {
 .danger{
 	background: #dc2626; 
 }
+.table-container{
+	margin-top: 20px; 
+	background: #ffffff; 
+	padding: 20px; 
+	border-radius: 10px; 
+	box-shadow : 0 2px 8px rgba(0,0,0,0.1); 
+}
+
+.schedule-table{
+	width: 100%; 
+	border-collapse: collapse; 
+	font-family : Arial, sans-serif;
+}
+
+
+.schedule-table thead{
+	background-color: #f4f6f8; 
+}
+
+.schedule-table th{
+	text-align : left; 
+	padding : 12px; 
+	font-weight: 600; 
+	color: #333; 
+	border-bottom: 2px solid #ddd; 
+}
+
+.schedule-table td{
+	padding: 12px; 
+	border-bottom : 1px solid #eee; 
+	color: #555; 
+}
+
+.schedule-table tr:hover{
+	background-color: #f9f9f9; 
+}
+
+
+.schedule-table{
+	font-weight: bold; 
+}
+
+body{
+	background: #f0f2f5; 
+}
+
+.container{
+	width: 60%; 
+	margin: auto ; 
+}
+
+h2{
+	text-align : center; 
+	margin-bottom: 20px; 
+}
+
+.action{
+	display: flex; 
+	gap: 8px; 
+}
+
+.btn-toggle{
+	padding: 6px 10px;
+	border: none; 
+	border-radius: 5px; 
+	background-color: #ffc107; 
+	color: #000; 
+	cursor: pointer; 
+}
+
+.btn-delete{
+	padding: 6px 10px; 
+	border: none; 
+	border-radius: 5px; 
+	background-color: #dc3545; 
+	color: #fff; 
+	cursor: pointer; 
+}
+
+
+
+.btn-toggle: hover{
+	background-color: #e0a800;
+}
+
+.btn-delete: hover{
+	background-color: #c82333; 
+}
+

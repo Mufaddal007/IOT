@@ -52,10 +52,11 @@ function updateDeviceUI(device, state) {
 
 }
 async function createSchedule() {
-    const time = document.getElementById("time").value;
+    const from_time = document.getElementById("from_time").value;
+	const to_time = document.getElementById("to_time").value; 
     const device = document.getElementById("device").value;
     const days = document.getElementById("days").value;
-    const action = document.getElementById("action").value;
+	const label = document.getElementById("label").value; 
 
     await fetch("/api/schedule", {
         method: "POST",
@@ -64,8 +65,9 @@ async function createSchedule() {
         },
         body: JSON.stringify({
             device: device,
-            action: action,
-            time: time,
+			from_time: from_time, 
+			to_time : to_time, 
+            label : label,
             days: days
         })
     });
@@ -76,29 +78,34 @@ async function createSchedule() {
 async function loadSchedules() {
     const res = await fetch("/api/schedules");
     const data = await res.json();
-    const list = document.getElementById("schedules_list");
-    list.innerHTML = "";
+    const table = document.getElementById("scheduleTable"); 
+	table.innerHTML='';
+ 
 
     data.forEach(s => {
-        const li = document.createElement("li");
-
-        li.innerHTML = `
-					<div class="schedule-row">
-						<div>
-							<strong>${s.device}</strong>
-							<p>${s.time} • ${s.action}  •  ${s.days ? s.days : "All" }</p>
-						</div>
-						<div>
-							<button class="secondary" onclick="toggleSchedule(${s.id}, ${s.enabled ? 0 : 1})">${s.enabled ? "Disable" : "Enable"}</button>
-						
-							<button class="danger" onclick="deleteSchedule(${s.id})">Delete</button>
-						</div>					
-					</div>
-
-				`;
-        list.appendChild(li);
+        const row = `
+		  <tr>
+			 <td>${s.label}</td>
+			 <td>${s.device}</td>
+			 <td>${s.from_time}</td>
+			 <td>${s.to_time}</td>
+			 <td>${s.days || "All"}</td>
+			 <td>${s.enabled ? "enabled" : "disabled"}</td>
+			 <td>${getActionButtons(s)}</td>
+		  </tr>
+			
+		`; 
+		table.innerHTML +=row; 
+		
     });
 
+}
+
+function getActionButtons(schedule){
+	return 	`
+		<button class="btn-toggle" onclick="toggleSchedule(${schedule.id}, ${schedule.enabled==1 ? 0 : 1})"> ${schedule.enabled ? 'Disable' : 'Enable'}</button>
+		<button class="btn-delete" onclick="deleteSchedule(${schedule.id})">Delete</button>
+	`;
 }
 
 async function toggleSchedule(id, enabled) {

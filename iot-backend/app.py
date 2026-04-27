@@ -78,7 +78,7 @@ def create_schedule():
 	data = request.json
 	conn = get_db_connection()
 	enabled = 1;
-	conn.execute("insert into schedule(device, action, time, days, enabled) values(?,?,?,?,?)", (data.get("device"), data.get("action"), data.get("time"), data.get("days"), enabled))
+	conn.execute("insert into schedule(label, device, from_time, to_time, days, enabled) values(?,?,?,?,?,?)", (data.get("label"), data.get("device"),  data.get("from_time"), data.get("to_time"), data.get("days"), enabled))
     
 	try:
        		requests.post(f"{ASYNC_CORE_URL}/schedules", json=schedules, timeout= 1)
