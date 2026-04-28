@@ -32,6 +32,21 @@ socket.onopen = () => {
 };
 socket.onmessage  = (event) => {
 	const msg = JSON.parse(event.data); 
+	if(msg.type && msg.type==="timer"){
+		document.getElementById("timerDisplay").innerText = msg.remaining + "sec"; 
+		return ; 
+	}
+	
+	else if(msg.type && msg.type==="timer_done"){
+		document.getElementById("timerDisplay").innerText = "Done"; 
+		return ;
+	}
+	else if(msg.type && msg.type==="esp_status"){
+		const el = document.getElementById("espStatus");; 
+		el.innerText = msg.status; 
+		el.className = msg.status; 
+		return ;
+	}
 	const device =   msg["device"];
 	const state = msg ["state"]; 
 	updateDeviceUI(device, state); 
@@ -134,3 +149,29 @@ async function deleteSchedule(id){
 document.addEventListener("DOMContentLoaded", function () {
     loadSchedules()
 });
+
+
+async function startTimer(){
+	const duration = document.getElementById("timerInput").value; 
+	await fetch("http://192.168.31.113:8081/start-timer", {
+		method: "POST", 
+	    headers : {"Content-Type": "application/json"}, 
+		body: JSON.stringify({
+			device:"led", 
+			duration : duration
+		}) 
+		
+	}); 
+}
+
+
+async function cancelTimer(){
+	await fetch("http://192.168.31.113:8081/cancel-timer", {
+		method: "POST", 
+		headers: {"Content-Type": "application/json"},
+		body: JSON.stringify({
+			device: "led"
+		})
+	}); 
+}
+

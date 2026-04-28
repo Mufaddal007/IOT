@@ -9,6 +9,9 @@
 	<body>
 		<div class="container">
 			<h1>IOT control panel</h1>
+			<div class="card">
+				ESP Status: <span id="espStatus" class="offline">Offline</span>
+			</div>
 			<div class="card section led-row">
 				<div>
 					<p>LED State: <span id="ledState">Loading...</span></p>
@@ -47,6 +50,16 @@
 							</thead>
 							<tbody id="scheduleTable"></tbody>
 						</table>
+					</div>
+				</div>
+				<div>
+				
+				<h3>Timer</h3>
+					<input type="number" id="timerInput"  placeholder="Seconds"/>
+					<button onclick="startTimer()">Start Timer</button>
+					<button onclick="cancelTimer()">Cancel</button>
+					<div>
+						Timer: <span id="timerDisplay">--</span>
 					</div>
 				</div>
 			</div>

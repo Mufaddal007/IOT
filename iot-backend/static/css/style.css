@@ -199,3 +199,17 @@ h2{
 	background-color: #c82333; 
 }
 
+#espStatus{
+	padding: 5px 10px; 
+	border-radius : 10px; 
+	color: white; 
+	font-weight: bold; 
+}
+
+.online {
+	background-color: #28a745;
+}
+
+.offline {
+	background-color: #dc3545;
+}

@@ -5,11 +5,12 @@ import datetime
 import websockets
 from aiohttp import web
 import sqlite3
+import aiohttp_cors
 
 logging.basicConfig(level = logging.INFO)
 
-
-
+esp_online= False
+active_timers = {}
 esp_clients = set()
 browser_clients = set()
 actual_state = {}
@@ -35,6 +36,60 @@ def get_now():
     return datetime.now().strftime("%H:%M")
     
     
+    
+async def run_timer(device, duration):
+    logging.info("⏱️ Timer started for %s (%s sec)", device, duration)
+    
+    
+    await send_to_esp(device, "on")
+    
+    remaining = duration
+    await send_to_browser({"device": device, "state" : "on"})
+    while remaining > 0:
+        await send_to_browser({
+            "type" : "timer" ,
+            "device" : device, 
+            "remaining" : remaining
+        })
+        await asyncio.sleep(1)
+            
+        remaining -=1
+    await send_to_esp(device, "off")
+    await send_to_browser({"device": device, "state" :  "off"})
+    await send_to_browser({"type": "timer_done", "device" : device})
+    logging.info("⏱️ Timer finished for %s", device)
+    
+#    try:
+        #await asyncio.sleep(duration)
+        
+
+        
+#    except asyncio.CancelledError:
+#        logging.info("⏱️ Timer cancelled for %s", device)
+        
+        
+async def start_timer(request):
+    data = await request.json()
+    device = data["device"]
+    duration = int(data["duration"])
+    
+    if device in active_timers:
+        active_timers[device].cancel()
+    task = asyncio.create_task(run_timer(device, duration))
+    active_timers[device]  = task
+    
+    return web.json_response({"status": "timer started"})
+    
+async def cancel_timer(request):
+    data = await request.json()
+    device = data["device"]
+    if device in active_timers:
+        active_timers[device].cancel()
+        await send_to_esp(device, "off")
+        await send_to_browser({"device": device, "state" :  "off"})
+        del active_timers[device]
+        
+    return web.json_response({"status": "timer cancelled"})
     
 async def scheduler():
     last_state = {}
@@ -76,6 +131,10 @@ async def scheduler():
 async def browser_handler(websocket):
     logging.info("✅ Browser connected")
     browser_clients.add(websocket)
+    if esp_online:
+        await send_to_browser({"type": "esp_status", "status":"online"})
+    else:
+        await send_to_browser({"type": "esp_status", "status": "offline"})
     state = get_current_state_from_db()
     await send_to_browser({"device": "led", "state": state["led"]})
     try:
@@ -88,8 +147,14 @@ async def browser_handler(websocket):
 
 
 async def esp_handler(websocket):
+    global esp_online
     logging.info("✅ ESP connected")
     esp_clients.add(websocket)
+    esp_online = True
+    await send_to_browser({
+        "type": "esp_status", 
+        "status" : "online"
+    })
     state = get_current_state_from_db()
     await send_to_esp("led", state["led"])
     try:
@@ -109,6 +174,11 @@ async def esp_handler(websocket):
     finally:
         esp_clients.remove(websocket)
         logging.info("❌ ESP disconnected")
+        esp_online=False
+        await send_to_browser({
+        "type": "esp_status", 
+        "status" : "offline"
+    })
         
         
 
@@ -156,6 +226,21 @@ async def main():
     app = web.Application()
     app.router.add_post("/command", handle_command)
     app.router.add_post("/shceudles", set_schedules)
+    
+    app.router.add_post("/start-timer", start_timer)
+    app.router.add_post("/cancel-timer", cancel_timer)
+    
+    cors = aiohttp_cors.setup(app, defaults= {
+        "*": aiohttp_cors.ResourceOptions(
+            allow_credentials= True, 
+            expose_headers="*", 
+            allow_headers= "*",
+        )
+        
+    })
+    
+    for route in list(app.router.routes()):
+        cors.add(route)
     
     runner = web.AppRunner(app)
     await runner.setup()
